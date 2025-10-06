@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exoplanet Detection Dashboard - XGBoost Model</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #a8a8a8;
+            font-size: 1.1em;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #4fc3f7;
+            margin-bottom: 10px;
+        }
+
+        .metric-label {
+            font-size: 1em;
+            color: #b0b0b0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .chart-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #fff;
+            border-bottom: 2px solid #4fc3f7;
+            padding-bottom: 10px;
+        }
+
+        .charts-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.5em;
+        }
+
+        .classification-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+
+        .classification-table th,
+        .classification-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .classification-table th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        .classification-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        canvas {
+            max-height: 400px;
+        }
+
+        #featureImportanceChart {
+            max-height: 600px !important;
+        }
+
+        #confusionHeatmap {
+            max-height: 500px !important;
+        }
+
+        #errorPatternsChart {
+            max-height: 400px !important;
+        }
+
+        .matrix-labels {
+            text-align: center;
+            margin-top: 15px;
+            color: #a8a8a8;
+            font-size: 0.95em;
+        }
+
+        #datasetInfo p, #errorStats p {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+
+        #cvStats {
+            margin-top: 20px;
+        }
+
+        details {
+            transition: all 0.3s ease;
+        }
+
+        details[open] {
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+
+        details summary {
+            outline: none;
+            padding: 5px 0;
+        }
+
+        details summary:hover {
+            color: #ce93d8 !important;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .nav-btn {
+            padding: 12px 30px;
+            background: rgba(79, 195, 247, 0.3);
+            border: 2px solid #4fc3f7;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .nav-btn:hover {
+            background: rgba(79, 195, 247, 0.5);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌟 Exoplanet Detection Dashboard</h1>
+        <p class="subtitle">XGBoost Machine Learning Model Performance</p>
+
+        <div class="nav-buttons">
+            <a href="/predict" class="nav-btn">🔮 Make Prediction</a>
+            <a href="/ingest" class="nav-btn">🔄 Data Ingestion & Retraining</a>
+            <a href="/tune" class="nav-btn">⚙️ Hyperparameter Tuning</a>
+        </div>
+
+        <div id="loading" class="loading">Loading model results...</div>
+
+        <div id="dashboard" style="display: none;">
+            <!-- 1. HERO METRICS -->
+            <div class="metrics-grid" id="metricsGrid"></div>
+
+            <!-- 2. MODEL ARCHITECTURE -->
+            <div class="chart-container">
+                <h2 class="chart-title">🤖 Model Architecture - XGBoost Ensemble</h2>
+                <div id="modelArchitecture"></div>
+            </div>
+
+            <!-- 3. DATASET CONTEXT -->
+            <div class="chart-container">
+                <h2 class="chart-title">📊 Dataset Information</h2>
+                <div id="datasetInfo"></div>
+            </div>
+
+            <!-- 3. PERFORMANCE VISUALIZATIONS -->
+            <div class="chart-container">
+                <h2 class="chart-title">Confusion Matrix Heatmap</h2>
+                <canvas id="confusionHeatmap"></canvas>
+                <p class="matrix-labels">X-axis: Predicted Labels | Y-axis: Actual Labels</p>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-container">
+                    <h2 class="chart-title">ROC Curves (One-vs-Rest)</h2>
+                    <canvas id="rocChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h2 class="chart-title">Per-Class Confidence Distribution</h2>
+                    <canvas id="confidenceChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2 class="chart-title">Class Distribution Comparison</h2>
+                <canvas id="distributionChart"></canvas>
+            </div>
+
+            <!-- 4. DETAILED METRICS -->
+            <div class="chart-container">
+                <h2 class="chart-title">Classification Report</h2>
+                <table class="classification-table" id="classificationTable"></table>
+            </div>
+
+            <div class="chart-container">
+                <h2 class="chart-title">Cross-Validation Scores (5-Fold)</h2>
+                <canvas id="cvChart"></canvas>
+                <div id="cvStats" style="margin-top: 20px;"></div>
+            </div>
+
+            <!-- 5. FEATURE INSIGHTS -->
+            <div class="chart-container">
+                <h2 class="chart-title">Top 30 Most Informative Features</h2>
+                <canvas id="featureImportanceChart"></canvas>
+            </div>
+
+            <!-- 6. ERROR ANALYSIS -->
+            <div class="chart-container">
+                <h2 class="chart-title">⚠️ Error Analysis</h2>
+                <div id="errorStats"></div>
+                <canvas id="errorPatternsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch and display model metrics
+        async function loadDashboard() {
+            try {
+                // Fetch all data in parallel
+                const [metrics, modelArch, importance, rocData, confidenceData, datasetInfo, cvData, errorData] = await Promise.all([
+                    fetch('/api/model_metrics').then(r => r.json()),
+                    fetch('/api/model_architecture').then(r => r.json()),
+                    fetch('/api/feature_importance').then(r => r.json()),
+                    fetch('/api/roc_data').then(r => r.json()),
+                    fetch('/api/confidence_distribution').then(r => r.json()),
+                    fetch('/api/dataset_info').then(r => r.json()),
+                    fetch('/api/cross_validation').then(r => r.json()),
+                    fetch('/api/error_analysis').then(r => r.json())
+                ]);
+
+                // Hide loading, show dashboard
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+
+                // Display all components
+                displayMetrics(metrics);
+                displayModelArchitecture(modelArch, metrics);
+                displayDatasetInfo(datasetInfo);
+                createConfusionMatrix(metrics);
+                createROCChart(rocData);
+                createConfidenceChart(confidenceData);
+                createDistributionChart(metrics);
+                createClassificationTable(metrics);
+                createCVChart(cvData);
+                createFeatureImportanceChart(importance);
+                displayErrorAnalysis(errorData);
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('loading').innerHTML = 'Error loading dashboard data: ' + error.message;
+            }
+        }
+
+        function displayMetrics(metrics) {
+            const grid = document.getElementById('metricsGrid');
+
+            const metricsCards = [
+                { label: 'Model Accuracy', value: (metrics.accuracy * 100).toFixed(2) + '%' },
+                { label: 'Weighted F1-Score', value: (metrics.f1_score * 100).toFixed(2) + '%' },
+                { label: 'AUC Score', value: (metrics.auc_score * 100).toFixed(2) + '%' },
+                { label: 'Test Samples', value: metrics.total_samples },
+                { label: 'Classes', value: metrics.class_names.length }
+            ];
+
+            metricsCards.forEach(metric => {
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-value">${metric.value}</div>
+                    <div class="metric-label">${metric.label}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function displayModelArchitecture(arch, metrics) {
+            const container = document.getElementById('modelArchitecture');
+
+            let html = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 15px; margin-bottom: 20px;">
+                    <div style="background: rgba(156, 39, 176, 0.2); padding: 15px; border-radius: 10px; text-align: center;">
+                        <h3 style="color: #ba68c8; margin-bottom: 8px;">Model Type</h3>
+                        <p style="font-size: 1.3em; font-weight: bold;">${arch.model_type}</p>
+                    </div>
+                    <div style="background: rgba(156, 39, 176, 0.2); padding: 15px; border-radius: 10px; text-align: center;">
+                        <h3 style="color: #ba68c8; margin-bottom: 8px;">Number of Models</h3>
+                        <p style="font-size: 1.3em; font-weight: bold;">${arch.n_models}</p>
+                    </div>
+                    <div style="background: rgba(156, 39, 176, 0.2); padding: 15px; border-radius: 10px; text-align: center;">
+                        <h3 style="color: #ba68c8; margin-bottom: 8px;">Ensemble Method</h3>
+                        <p style="font-size: 1.3em; font-weight: bold;">Soft Voting</p>
+                    </div>
+                    <div style="background: rgba(156, 39, 176, 0.2); padding: 15px; border-radius: 10px; text-align: center;">
+                        <h3 style="color: #ba68c8; margin-bottom: 8px;">Total Trees</h3>
+                        <p style="font-size: 1.3em; font-weight: bold;">${arch.total_trees.toLocaleString()}</p>
+                        <p style="font-size: 0.85em; color: #a8a8a8;">(${arch.n_models} × ${arch.n_estimators_per_model})</p>
+                    </div>
+                    <div style="background: rgba(156, 39, 176, 0.2); padding: 15px; border-radius: 10px; text-align: center;">
+                        <h3 style="color: #ba68c8; margin-bottom: 8px;">Ensemble Accuracy</h3>
+                        <p style="font-size: 1.3em; font-weight: bold;">${(metrics.accuracy * 100).toFixed(2)}%</p>
+                    </div>
+                </div>
+
+                <details style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 15px; cursor: pointer;">
+                    <summary style="font-size: 1.1em; font-weight: bold; color: #ba68c8; cursor: pointer; user-select: none;">
+                        ℹ️ What is an Ensemble? (Click to expand)
+                    </summary>
+                    <div style="margin-top: 15px; line-height: 1.8; padding-left: 10px;">
+                        <p style="margin-bottom: 15px;">
+                            Instead of using one model, we train <strong>5 separate XGBoost models</strong>
+                            with different random initializations (seeds: ${arch.random_seeds.join(', ')}).
+                            For each prediction:
+                        </p>
+                        <ol style="margin-left: 20px; margin-bottom: 15px;">
+                            <li style="margin-bottom: 8px;">All 5 models make a prediction independently</li>
+                            <li style="margin-bottom: 8px;">We average their probability outputs (not just votes)</li>
+                            <li style="margin-bottom: 8px;">The averaged prediction is more stable and accurate</li>
+                        </ol>
+                        <p style="margin-bottom: 10px;">
+                            This technique is called <strong>soft voting</strong> and reduces prediction variance,
+                            leading to more robust and reliable predictions than a single model.
+                        </p>
+                    </div>
+                </details>
+
+                <details style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                    <summary style="font-size: 1.1em; font-weight: bold; color: #ba68c8; cursor: pointer; user-select: none;">
+                        🔧 Model Hyperparameters (Click to expand)
+                    </summary>
+                    <div style="margin-top: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <div><strong>Learning Rate:</strong> ${arch.learning_rate}</div>
+                        <div><strong>Max Depth:</strong> ${arch.max_depth}</div>
+                        <div><strong>Min Child Weight:</strong> ${arch.min_child_weight}</div>
+                        <div><strong>Subsample:</strong> ${arch.subsample}</div>
+                        <div><strong>Colsample by Tree:</strong> ${arch.colsample_bytree}</div>
+                        <div><strong>Objective:</strong> ${arch.objective}</div>
+                    </div>
+                </details>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function displayDatasetInfo(info) {
+            const container = document.getElementById('datasetInfo');
+
+            let html = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 15px;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #4fc3f7; margin-bottom: 10px;">Dataset Overview</h3>
+                        <p><strong>Source:</strong> ${info.data_source}</p>
+                        <p><strong>Total Samples:</strong> ${info.total_samples}</p>
+                        <p><strong>Features:</strong> ${info.n_features}</p>
+                        <p><strong>Classes:</strong> ${info.n_classes}</p>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #4fc3f7; margin-bottom: 10px;">Train/Test Split</h3>
+                        <p><strong>Training Samples:</strong> ${info.train_samples} (${(info.train_samples / info.total_samples * 100).toFixed(1)}%)</p>
+                        <p><strong>Test Samples:</strong> ${info.test_samples} (${(info.test_samples / info.total_samples * 100).toFixed(1)}%)</p>
+                        <p><strong>Random State:</strong> ${info.random_state}</p>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #4fc3f7; margin-bottom: 10px;">Class Distribution</h3>`;
+
+            Object.keys(info.train_distribution).forEach(className => {
+                html += `<p><strong>${className}:</strong> Train: ${info.train_distribution[className]}, Test: ${info.test_distribution[className]}</p>`;
+            });
+
+            html += `</div></div>`;
+            container.innerHTML = html;
+        }
+
+        function createDistributionChart(metrics) {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: metrics.class_names,
+                    datasets: [{
+                        label: 'Predicted',
+                        data: metrics.class_names.map(name => metrics.predicted_distribution[name] || 0),
+                        backgroundColor: 'rgba(79, 195, 247, 0.7)',
+                        borderColor: 'rgba(79, 195, 247, 1)',
+                        borderWidth: 2
+                    }, {
+                        label: 'Actual',
+                        data: metrics.class_names.map(name => metrics.true_distribution[name] || 0),
+                        backgroundColor: 'rgba(129, 199, 132, 0.7)',
+                        borderColor: 'rgba(129, 199, 132, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff', font: { size: 14 } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createConfusionMatrix(metrics) {
+            const ctx = document.getElementById('confusionHeatmap').getContext('2d');
+            const matrix = metrics.confusion_matrix;
+            const classNames = metrics.class_names;
+
+            // Transform matrix data for heatmap
+            const data = [];
+            const maxValue = Math.max(...matrix.flat());
+
+            matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    data.push({
+                        x: classNames[x],
+                        y: classNames[y],
+                        v: value
+                    });
+                });
+            });
+
+            new Chart(ctx, {
+                type: 'matrix',
+                data: {
+                    datasets: [{
+                        label: 'Confusion Matrix',
+                        data: data,
+                        backgroundColor(context) {
+                            const value = context.dataset.data[context.dataIndex].v;
+                            const alpha = value / maxValue;
+
+                            // Use green for diagonal (correct predictions)
+                            const xIndex = classNames.indexOf(context.dataset.data[context.dataIndex].x);
+                            const yIndex = classNames.indexOf(context.dataset.data[context.dataIndex].y);
+
+                            if (xIndex === yIndex) {
+                                return `rgba(76, 175, 80, ${0.3 + alpha * 0.7})`;
+                            } else {
+                                return `rgba(244, 67, 54, ${0.3 + alpha * 0.7})`;
+                            }
+                        },
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        borderWidth: 1,
+                        width: ({chart}) => (chart.chartArea || {}).width / classNames.length - 1,
+                        height: ({chart}) => (chart.chartArea || {}).height / classNames.length - 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title() {
+                                    return '';
+                                },
+                                label(context) {
+                                    const v = context.dataset.data[context.dataIndex];
+                                    return ['Actual: ' + v.y, 'Predicted: ' + v.x, 'Count: ' + v.v];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'category',
+                            labels: classNames,
+                            ticks: {
+                                color: '#fff',
+                                font: { size: 12 }
+                            },
+                            grid: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Predicted Label',
+                                color: '#fff',
+                                font: { size: 14 }
+                            }
+                        },
+                        y: {
+                            type: 'category',
+                            labels: classNames,
+                            offset: true,
+                            ticks: {
+                                color: '#fff',
+                                font: { size: 12 }
+                            },
+                            grid: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Actual Label',
+                                color: '#fff',
+                                font: { size: 14 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createClassificationTable(metrics) {
+            const table = document.getElementById('classificationTable');
+            const report = metrics.classification_report;
+
+            let html = `
+                <thead>
+                    <tr>
+                        <th>Class</th>
+                        <th>Precision</th>
+                        <th>Recall</th>
+                        <th>F1-Score</th>
+                        <th>Support</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            metrics.class_names.forEach(className => {
+                if (report[className]) {
+                    html += `
+                        <tr>
+                            <td><strong>${className}</strong></td>
+                            <td>${(report[className].precision * 100).toFixed(2)}%</td>
+                            <td>${(report[className].recall * 100).toFixed(2)}%</td>
+                            <td>${(report[className]['f1-score'] * 100).toFixed(2)}%</td>
+                            <td>${report[className].support}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        function createFeatureImportanceChart(importance) {
+            const ctx = document.getElementById('featureImportanceChart').getContext('2d');
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: importance.features,
+                    datasets: [{
+                        label: 'Feature Importance',
+                        data: importance.importance,
+                        backgroundColor: 'rgba(255, 167, 38, 0.7)',
+                        borderColor: 'rgba(255, 167, 38, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff', font: { size: 14 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            title: {
+                                display: true,
+                                text: 'Importance Score',
+                                color: '#fff'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#fff',
+                                font: { size: 11 }
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createROCChart(rocData) {
+            const ctx = document.getElementById('rocChart').getContext('2d');
+            const colors = ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)'];
+
+            const datasets = [];
+            let i = 0;
+
+            for (const [className, data] of Object.entries(rocData)) {
+                datasets.push({
+                    label: `${className} (AUC = ${data.auc.toFixed(3)})`,
+                    data: data.fpr.map((fpr, idx) => ({ x: fpr, y: data.tpr[idx] })),
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    pointRadius: 0,
+                    tension: 0.1
+                });
+                i++;
+            }
+
+            // Add diagonal reference line
+            datasets.push({
+                label: 'Random Classifier',
+                data: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+                borderColor: 'rgba(255, 255, 255, 0.3)',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0
+            });
+
+            new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff', font: { size: 12 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'False Positive Rate', color: '#fff', font: { size: 14 } },
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            min: 0,
+                            max: 1
+                        },
+                        y: {
+                            title: { display: true, text: 'True Positive Rate', color: '#fff', font: { size: 14 } },
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            min: 0,
+                            max: 1
+                        }
+                    }
+                }
+            });
+        }
+
+        function createConfidenceChart(confidenceData) {
+            const ctx = document.getElementById('confidenceChart').getContext('2d');
+            const colors = ['rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)'];
+
+            const datasets = [];
+            let i = 0;
+
+            for (const [className, data] of Object.entries(confidenceData)) {
+                const binCenters = data.bin_edges.slice(0, -1).map((edge, idx) =>
+                    (edge + data.bin_edges[idx + 1]) / 2
+                );
+
+                datasets.push({
+                    label: className,
+                    data: binCenters.map((center, idx) => ({ x: center, y: data.histogram[idx] })),
+                    backgroundColor: colors[i % colors.length],
+                    borderColor: colors[i % colors.length].replace('0.7', '1'),
+                    borderWidth: 2
+                });
+                i++;
+            }
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff', font: { size: 12 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Probability', color: '#fff', font: { size: 14 } },
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            min: 0,
+                            max: 1
+                        },
+                        y: {
+                            title: { display: true, text: 'Frequency', color: '#fff', font: { size: 14 } },
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createCVChart(cvData) {
+            const ctx = document.getElementById('cvChart').getContext('2d');
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: cvData.cv_scores.map((_, idx) => `Fold ${idx + 1}`),
+                    datasets: [{
+                        label: 'Accuracy Score',
+                        data: cvData.cv_scores,
+                        backgroundColor: 'rgba(103, 58, 183, 0.7)',
+                        borderColor: 'rgba(103, 58, 183, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff', font: { size: 14 } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            title: { display: true, text: 'Accuracy', color: '#fff', font: { size: 14 } },
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+
+            // Display stats
+            const statsDiv = document.getElementById('cvStats');
+            statsDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #4fc3f7;">Mean CV Score</h3>
+                        <p style="font-size: 1.5em; font-weight: bold;">${(cvData.mean_cv_score * 100).toFixed(2)}%</p>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #4fc3f7;">Std Deviation</h3>
+                        <p style="font-size: 1.5em; font-weight: bold;">${(cvData.std_cv_score * 100).toFixed(2)}%</p>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #4fc3f7;">Number of Folds</h3>
+                        <p style="font-size: 1.5em; font-weight: bold;">${cvData.n_folds}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayErrorAnalysis(errorData) {
+            const statsDiv = document.getElementById('errorStats');
+            const ctx = document.getElementById('errorPatternsChart').getContext('2d');
+
+            // Display error statistics
+            statsDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px;">
+                    <div style="background: rgba(244, 67, 54, 0.2); padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #ef5350;">Total Errors</h3>
+                        <p style="font-size: 2em; font-weight: bold;">${errorData.total_errors}</p>
+                    </div>
+                    <div style="background: rgba(244, 67, 54, 0.2); padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #ef5350;">Error Rate</h3>
+                        <p style="font-size: 2em; font-weight: bold;">${(errorData.error_rate * 100).toFixed(2)}%</p>
+                    </div>
+                </div>
+            `;
+
+            // Create error patterns chart
+            const patterns = Object.entries(errorData.error_patterns).slice(0, 10);
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: patterns.map(([pattern, _]) => pattern),
+                    datasets: [{
+                        label: 'Number of Misclassifications',
+                        data: patterns.map(([_, count]) => count),
+                        backgroundColor: 'rgba(244, 67, 54, 0.7)',
+                        borderColor: 'rgba(244, 67, 54, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff', font: { size: 14 } }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Top 10 Misclassification Patterns (Actual → Predicted)',
+                            color: '#fff',
+                            font: { size: 14 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Count', color: '#fff', font: { size: 14 } },
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#fff', font: { size: 11 } },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load dashboard on page load
+        window.addEventListener('load', loadDashboard);
+    </script>
+</body>
+</html>

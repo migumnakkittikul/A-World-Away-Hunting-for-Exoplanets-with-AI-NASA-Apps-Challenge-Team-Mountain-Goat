@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exoplanet Prediction - Single Sample Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #a8a8a8;
+            font-size: 1.1em;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            padding: 12px 30px;
+            background: rgba(79, 195, 247, 0.3);
+            border: 2px solid rgba(79, 195, 247, 0.5);
+            border-radius: 10px;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-btn:hover {
+            background: rgba(79, 195, 247, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 195, 247, 0.3);
+        }
+
+        .info-box {
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-box strong {
+            color: #4fc3f7;
+        }
+
+        .section-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #4fc3f7;
+            text-align: center;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .feature-input {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .feature-input label {
+            display: block;
+            margin-bottom: 8px;
+            color: #a8a8a8;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .feature-input input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            color: #fff;
+            font-size: 1em;
+        }
+
+        .feature-input input:focus {
+            outline: none;
+            border-color: #4fc3f7;
+            box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
+        }
+
+        .feature-importance-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #4fc3f7, rgba(79, 195, 247, 0.2));
+            border-radius: 2px;
+            margin-top: 5px;
+        }
+
+        .predict-btn {
+            display: block;
+            width: 100%;
+            max-width: 400px;
+            margin: 30px auto;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1.2em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .predict-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .predict-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .results-container {
+            display: none;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .prediction-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .prediction-class {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .prediction-class.CONFIRMED {
+            color: #4caf50;
+        }
+
+        .prediction-class.CANDIDATE {
+            color: #ff9800;
+        }
+
+        .prediction-class.FALSE_POSITIVE {
+            color: #f44336;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 10px 20px;
+            background: rgba(79, 195, 247, 0.3);
+            border-radius: 20px;
+            font-size: 1.2em;
+            margin-top: 10px;
+        }
+
+        .probabilities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .probability-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .probability-card.highest {
+            border-color: #4fc3f7;
+            background: rgba(79, 195, 247, 0.1);
+        }
+
+        .probability-label {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #a8a8a8;
+        }
+
+        .probability-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .probability-bar {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .probability-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 5px;
+            transition: width 1s ease-out;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #4fc3f7;
+        }
+
+        .error-message {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #f44336;
+        }
+
+        .reset-btn {
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 20px auto;
+            padding: 12px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .reset-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔮 Exoplanet Prediction</h1>
+        <p class="subtitle">Enter values for the top 15 most important features to predict exoplanet classification</p>
+
+        <div class="nav-buttons">
+            <a href="/" class="nav-btn">📊 View Dashboard</a>
+            <a href="/ingest" class="nav-btn">🔄 Data Ingestion</a>
+            <a href="/tune" class="nav-btn">⚙️ Hyperparameter Tuning</a>
+        </div>
+
+        <div class="info-box">
+            <strong>ℹ️ How it works:</strong> Enter values for the top 15 most important features below.
+            The remaining features will be automatically filled with median values from the training dataset.
+            The model will then predict the probability that your input represents a CONFIRMED exoplanet,
+            CANDIDATE, or FALSE POSITIVE.
+        </div>
+
+        <div class="section-container">
+            <h2 class="section-title">📝 Top 15 Most Important Features</h2>
+
+            <div id="loading" class="loading">Loading features...</div>
+
+            <form id="predictionForm" style="display: none;">
+                <div id="featuresGrid" class="features-grid"></div>
+
+                <button type="submit" class="predict-btn" id="predictBtn">
+                    🔮 Predict Exoplanet Classification
+                </button>
+            </form>
+        </div>
+
+        <div id="resultsContainer" class="results-container">
+            <div class="prediction-header">
+                <h2 class="section-title">🎯 Prediction Results</h2>
+                <div class="prediction-class" id="predictionClass"></div>
+                <div class="confidence-badge" id="confidenceBadge"></div>
+            </div>
+
+            <div class="probabilities-grid" id="probabilitiesGrid"></div>
+
+            <div class="chart-container">
+                <canvas id="probabilityChart"></canvas>
+            </div>
+
+            <button class="reset-btn" onclick="resetForm()">🔄 Make Another Prediction</button>
+        </div>
+    </div>
+
+    <script>
+        let topFeatures = [];
+        let featureImportance = {};
+
+        // Load top 15 features on page load
+        async function loadTopFeatures() {
+            try {
+                const response = await fetch('/api/get_top_features');
+                const data = await response.json();
+
+                topFeatures = data.features;
+
+                // Create importance mapping
+                data.features.forEach((feature, index) => {
+                    featureImportance[feature] = data.importance[index];
+                });
+
+                createFeatureInputs();
+            } catch (error) {
+                console.error('Error loading features:', error);
+                document.getElementById('loading').innerHTML =
+                    '<div class="error-message">Error loading features. Please refresh the page.</div>';
+            }
+        }
+
+        function createFeatureInputs() {
+            const grid = document.getElementById('featuresGrid');
+            grid.innerHTML = '';
+
+            topFeatures.forEach((feature, index) => {
+                const importance = featureImportance[feature];
+                const maxImportance = Math.max(...Object.values(featureImportance));
+                const barWidth = (importance / maxImportance) * 100;
+
+                const featureDiv = document.createElement('div');
+                featureDiv.className = 'feature-input';
+                featureDiv.innerHTML = `
+                    <label for="feature_${index}">
+                        #${index + 1}: ${feature}
+                    </label>
+                    <input
+                        type="number"
+                        step="any"
+                        id="feature_${index}"
+                        name="${feature}"
+                        required
+                        placeholder="Enter value"
+                    >
+                    <div class="feature-importance-bar" style="width: ${barWidth}%"></div>
+                `;
+                grid.appendChild(featureDiv);
+            });
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('predictionForm').style.display = 'block';
+        }
+
+        // Handle form submission
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const predictBtn = document.getElementById('predictBtn');
+            predictBtn.disabled = true;
+            predictBtn.textContent = '🔮 Predicting...';
+
+            // Collect feature values
+            const features = {};
+            topFeatures.forEach((feature, index) => {
+                const input = document.getElementById(`feature_${index}`);
+                features[feature] = parseFloat(input.value);
+            });
+
+            try {
+                const response = await fetch('/api/predict_sample', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ features })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayResults(result);
+                } else {
+                    alert('Prediction Error: ' + (result.error || 'Unknown error occurred'));
+                }
+            } catch (error) {
+                console.error('Prediction error:', error);
+                alert('Error making prediction: ' + error.message);
+            } finally {
+                predictBtn.disabled = false;
+                predictBtn.textContent = '🔮 Predict Exoplanet Classification';
+            }
+        });
+
+        function displayResults(result) {
+            // Show results container
+            document.getElementById('resultsContainer').style.display = 'block';
+            document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth' });
+
+            // Display prediction class
+            const predictionClass = document.getElementById('predictionClass');
+            predictionClass.textContent = result.prediction;
+            // Replace spaces with underscores for CSS class name
+            const cssClassName = result.prediction.replace(/ /g, '_');
+            predictionClass.className = 'prediction-class ' + cssClassName;
+
+            // Display confidence
+            const confidenceBadge = document.getElementById('confidenceBadge');
+            confidenceBadge.textContent = `Confidence: ${(result.confidence * 100).toFixed(2)}%`;
+
+            // Display probability cards
+            displayProbabilityCards(result.probabilities, result.prediction);
+
+            // Display probability chart
+            displayProbabilityChart(result.probabilities);
+        }
+
+        function displayProbabilityCards(probabilities, prediction) {
+            const grid = document.getElementById('probabilitiesGrid');
+            grid.innerHTML = '';
+
+            const classColors = {
+                'CONFIRMED': '#4caf50',
+                'CANDIDATE': '#ff9800',
+                'FALSE POSITIVE': '#f44336'
+            };
+
+            Object.entries(probabilities).forEach(([className, probability]) => {
+                const isHighest = className === prediction;
+
+                const card = document.createElement('div');
+                card.className = 'probability-card' + (isHighest ? ' highest' : '');
+                card.innerHTML = `
+                    <div class="probability-label">${className}</div>
+                    <div class="probability-value" style="color: ${classColors[className] || '#fff'}">
+                        ${(probability * 100).toFixed(2)}%
+                    </div>
+                    <div class="probability-bar">
+                        <div class="probability-fill" style="width: ${probability * 100}%"></div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function displayProbabilityChart(probabilities) {
+            const ctx = document.getElementById('probabilityChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (window.probabilityChart && typeof window.probabilityChart.destroy === 'function') {
+                window.probabilityChart.destroy();
+            }
+
+            const classColors = {
+                'CONFIRMED': '#4caf50',
+                'CANDIDATE': '#ff9800',
+                'FALSE POSITIVE': '#f44336'
+            };
+
+            const labels = Object.keys(probabilities);
+            const data = Object.values(probabilities).map(p => p * 100);
+            const colors = labels.map(label => classColors[label] || '#4fc3f7');
+
+            window.probabilityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Probability (%)',
+                        data: data,
+                        backgroundColor: colors.map(c => c + '80'),
+                        borderColor: colors,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Class Probability Distribution',
+                            color: '#fff',
+                            font: {
+                                size: 16
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: '#fff',
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#fff'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('predictionForm').reset();
+            document.getElementById('resultsContainer').style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Load features on page load
+        loadTopFeatures();
+    </script>
+</body>
+</html>

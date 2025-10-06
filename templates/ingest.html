@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Ingestion & Model Retraining - Exoplanet Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #a8a8a8;
+            font-size: 1.1em;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .nav-btn {
+            padding: 12px 30px;
+            background: rgba(79, 195, 247, 0.3);
+            border: 2px solid #4fc3f7;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: rgba(79, 195, 247, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .section-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #4fc3f7;
+            border-bottom: 2px solid #4fc3f7;
+            padding-bottom: 10px;
+        }
+
+        .upload-area {
+            border: 3px dashed rgba(79, 195, 247, 0.5);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #4fc3f7;
+            background: rgba(79, 195, 247, 0.1);
+        }
+
+        .upload-area.dragging {
+            border-color: #81c784;
+            background: rgba(129, 199, 132, 0.2);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(129, 199, 132, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef5350 0%, #e53935 100%);
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(239, 83, 80, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%);
+            color: #fff;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4fc3f7;
+            font-weight: bold;
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1em;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #4fc3f7;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .queue-container {
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .queue-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .queue-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-success {
+            background: rgba(129, 199, 132, 0.3);
+            border: 1px solid #81c784;
+            color: #c5e1a5;
+        }
+
+        .status-error {
+            background: rgba(239, 83, 80, 0.3);
+            border: 1px solid #ef5350;
+            color: #ffcdd2;
+        }
+
+        .status-info {
+            background: rgba(79, 195, 247, 0.3);
+            border: 1px solid #4fc3f7;
+            color: #b3e5fc;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .comparison-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .comparison-card h3 {
+            color: #4fc3f7;
+            margin-bottom: 15px;
+        }
+
+        .metric {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .improvement-positive {
+            color: #81c784;
+        }
+
+        .improvement-negative {
+            color: #ef5350;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            border: 2px solid #4fc3f7;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .grid-2col {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Data Ingestion & Model Retraining</h1>
+        <p class="subtitle">Add new exoplanet data and retrain your ensemble model</p>
+
+        <div class="nav-buttons">
+            <a href="/" class="nav-btn">📊 View Dashboard</a>
+            <a href="/predict" class="nav-btn">🔮 Make Prediction</a>
+            <a href="/tune" class="nav-btn">⚙️ Hyperparameter Tuning</a>
+        </div>
+
+        <!-- CSV Upload Section -->
+        <div class="section-container">
+            <h2 class="section-title">📁 Option 1: Upload CSV File</h2>
+
+            <div id="uploadStatus" class="status-message"></div>
+
+            <div class="upload-area" id="uploadArea">
+                <h3>📤 Drag & Drop CSV File Here</h3>
+                <p style="margin: 10px 0; color: #a8a8a8;">or click to browse</p>
+                <input type="file" id="fileInput" accept=".csv">
+            </div>
+
+            <div id="uploadedFileInfo" style="display: none;">
+                <h4 style="color: #81c784; margin-bottom: 10px;">✅ File Uploaded Successfully</h4>
+                <p><strong>Filename:</strong> <span id="uploadedFilename"></span></p>
+                <p><strong>Samples:</strong> <span id="uploadedSamples"></span></p>
+                <p><strong>Class Distribution:</strong></p>
+                <div id="uploadedDistribution" style="margin: 10px 0;"></div>
+                <button class="btn btn-primary" onclick="trainOnCSV()">🚀 Train Model on This Data</button>
+            </div>
+        </div>
+
+        <!-- Manual Entry Section -->
+        <div class="section-container">
+            <h2 class="section-title">✏️ Option 2: Manual Entry</h2>
+
+            <div id="manualStatus" class="status-message"></div>
+
+            <form id="manualEntryForm" onsubmit="addToQueue(event)">
+                <div class="form-group">
+                    <label for="classSelect">Classification *</label>
+                    <select id="classSelect" required>
+                        <option value="">-- Select Class --</option>
+                    </select>
+                </div>
+
+                <h3 style="color: #4fc3f7; margin: 20px 0;">Feature Values</h3>
+                <p style="color: #a8a8a8; margin-bottom: 20px;">
+                    Enter values for all <span id="featureCount">0</span> features.
+                    <button type="button" class="btn btn-warning" onclick="fillRandomValues()">🎲 Fill Random Values (for testing)</button>
+                </p>
+
+                <div id="featureInputsContainer" class="grid-2col"></div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button type="submit" class="btn btn-success">➕ Add to Queue</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Queue Management Section -->
+        <div class="section-container">
+            <h2 class="section-title">📋 Sample Queue (<span id="queueSize">0</span> samples)</h2>
+
+            <div id="queueStatus" class="status-message"></div>
+
+            <div class="queue-container" id="queueContainer">
+                <p style="text-align: center; color: #a8a8a8;">Queue is empty. Add samples using manual entry above.</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="trainOnQueue()" id="trainQueueBtn" disabled>
+                    🚀 Train Model on Queue
+                </button>
+                <button class="btn btn-danger" onclick="clearQueue()" id="clearQueueBtn" disabled>
+                    🗑️ Clear Queue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Modal -->
+    <div id="comparisonModal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: #4fc3f7; text-align: center; margin-bottom: 20px;">
+                📊 Model Comparison Results
+            </h2>
+
+            <div id="trainingProgress" style="display: none;">
+                <p style="text-align: center; margin-bottom: 10px;">Training ensemble models (5 models with 400 trees each)...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+            </div>
+
+            <div id="comparisonResults" style="display: none;">
+                <div class="comparison-grid">
+                    <div class="comparison-card">
+                        <h3>🔵 Current Model</h3>
+                        <div class="metric" id="oldAccuracy">--</div>
+                        <p>Accuracy</p>
+                        <div class="metric" id="oldF1">--</div>
+                        <p>F1-Score</p>
+                        <div class="metric" id="oldSamples">--</div>
+                        <p>Training Samples</p>
+                    </div>
+
+                    <div class="comparison-card">
+                        <h3>🟢 New Model</h3>
+                        <div class="metric" id="newAccuracy">--</div>
+                        <p>Accuracy</p>
+                        <div class="metric" id="newF1">--</div>
+                        <p>F1-Score</p>
+                        <div class="metric" id="newSamples">--</div>
+                        <p>Training Samples</p>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin: 20px 0; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                    <h3 style="color: #4fc3f7;">Improvements</h3>
+                    <p style="font-size: 1.5em; margin: 10px 0;">
+                        Accuracy: <span id="accuracyChange" class="metric">--</span>
+                    </p>
+                    <p style="font-size: 1.5em; margin: 10px 0;">
+                        F1-Score: <span id="f1Change" class="metric">--</span>
+                    </p>
+                    <p style="margin: 10px 0;">
+                        New samples added: <span id="newSamplesAdded">--</span>
+                    </p>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="btn btn-success" onclick="acceptNewModel()">
+                        ✅ Keep New Model
+                    </button>
+                    <button class="btn btn-danger" onclick="rejectNewModel()">
+                        ❌ Keep Current Model
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let features = [];
+        let classes = [];
+        let currentUploadedFile = null;
+        let currentComparison = null;
+
+        // Load feature list on page load
+        async function loadFeatures() {
+            try {
+                const response = await fetch('/api/get_feature_list');
+                const data = await response.json();
+
+                features = data.features;
+                classes = data.classes;
+
+                // Populate class dropdown
+                const classSelect = document.getElementById('classSelect');
+                classes.forEach(cls => {
+                    const option = document.createElement('option');
+                    option.value = cls;
+                    option.textContent = cls;
+                    classSelect.appendChild(option);
+                });
+
+                // Create feature inputs
+                const container = document.getElementById('featureInputsContainer');
+                document.getElementById('featureCount').textContent = features.length;
+
+                features.forEach(feature => {
+                    const div = document.createElement('div');
+                    div.className = 'form-group';
+                    div.innerHTML = `
+                        <label for="feature_${feature}">${feature}</label>
+                        <input type="number" step="any" id="feature_${feature}" name="${feature}" required>
+                    `;
+                    container.appendChild(div);
+                });
+
+                // Load queue status
+                updateQueueStatus();
+
+            } catch (error) {
+                showStatus('manualStatus', 'Error loading features: ' + error.message, 'error');
+            }
+        }
+
+        // Upload area drag & drop
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragging');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragging');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragging');
+
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileUpload(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        async function handleFileUpload(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload_csv', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentUploadedFile = result.filename;
+
+                    document.getElementById('uploadedFilename').textContent = result.filename;
+                    document.getElementById('uploadedSamples').textContent = result.samples;
+
+                    const distDiv = document.getElementById('uploadedDistribution');
+                    distDiv.innerHTML = '';
+                    Object.entries(result.class_distribution).forEach(([cls, count]) => {
+                        distDiv.innerHTML += `<p>  • ${cls}: ${count} samples</p>`;
+                    });
+
+                    document.getElementById('uploadedFileInfo').style.display = 'block';
+                    showStatus('uploadStatus', result.message, 'success');
+                } else {
+                    showStatus('uploadStatus', 'Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('uploadStatus', 'Upload failed: ' + error.message, 'error');
+            }
+        }
+
+        function fillRandomValues() {
+            features.forEach(feature => {
+                const input = document.getElementById(`feature_${feature}`);
+                input.value = (Math.random() * 100).toFixed(2);
+            });
+        }
+
+        async function addToQueue(event) {
+            event.preventDefault();
+
+            const classValue = document.getElementById('classSelect').value;
+            const featureValues = {};
+
+            features.forEach(feature => {
+                const input = document.getElementById(`feature_${feature}`);
+                featureValues[feature] = parseFloat(input.value);
+            });
+
+            try {
+                const response = await fetch('/api/add_to_queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        class: classValue,
+                        features: featureValues
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('manualStatus', result.message, 'success');
+                    document.getElementById('manualEntryForm').reset();
+                    updateQueueStatus();
+                } else {
+                    showStatus('manualStatus', 'Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('manualStatus', 'Failed to add: ' + error.message, 'error');
+            }
+        }
+
+        async function updateQueueStatus() {
+            try {
+                const response = await fetch('/api/queue_status');
+                const data = await response.json();
+
+                document.getElementById('queueSize').textContent = data.queue_size;
+
+                const container = document.getElementById('queueContainer');
+
+                if (data.queue_size === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #a8a8a8;">Queue is empty. Add samples using manual entry above.</p>';
+                    document.getElementById('trainQueueBtn').disabled = true;
+                    document.getElementById('clearQueueBtn').disabled = true;
+                } else {
+                    container.innerHTML = '';
+                    data.samples.forEach(sample => {
+                        const div = document.createElement('div');
+                        div.className = 'queue-item';
+                        div.innerHTML = `
+                            <div>
+                                <strong>${sample.class}</strong>
+                                <span style="color: #a8a8a8; margin-left: 10px;">${new Date(sample.timestamp).toLocaleString()}</span>
+                            </div>
+                            <button class="btn btn-danger" onclick="removeFromQueue(${sample.id})">Remove</button>
+                        `;
+                        container.appendChild(div);
+                    });
+
+                    document.getElementById('trainQueueBtn').disabled = false;
+                    document.getElementById('clearQueueBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Failed to update queue:', error);
+            }
+        }
+
+        async function removeFromQueue(id) {
+            try {
+                const response = await fetch('/api/remove_from_queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    updateQueueStatus();
+                }
+            } catch (error) {
+                showStatus('queueStatus', 'Failed to remove: ' + error.message, 'error');
+            }
+        }
+
+        async function clearQueue() {
+            if (!confirm('Are you sure you want to clear all samples from the queue?')) return;
+
+            try {
+                const response = await fetch('/api/clear_queue', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('queueStatus', result.message, 'success');
+                    updateQueueStatus();
+                }
+            } catch (error) {
+                showStatus('queueStatus', 'Failed to clear queue: ' + error.message, 'error');
+            }
+        }
+
+        async function trainOnQueue() {
+            if (!confirm('Start training on queue data? This will take several minutes.')) return;
+
+            showModal();
+            showProgress();
+
+            try {
+                const response = await fetch('/api/train_on_queue', { method: 'POST' });
+                const result = await response.json();
+
+                hideProgress();
+
+                if (result.success) {
+                    showComparison(result);
+                } else {
+                    alert('Training failed: ' + result.error);
+                    hideModal();
+                }
+            } catch (error) {
+                hideProgress();
+                alert('Training failed: ' + error.message);
+                hideModal();
+            }
+        }
+
+        async function trainOnCSV() {
+            if (!currentUploadedFile) {
+                alert('No file uploaded');
+                return;
+            }
+
+            if (!confirm('Start training on uploaded CSV? This will take several minutes.')) return;
+
+            showModal();
+            showProgress();
+
+            try {
+                const response = await fetch('/api/train_on_csv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: currentUploadedFile })
+                });
+
+                const result = await response.json();
+
+                hideProgress();
+
+                if (result.success) {
+                    showComparison(result);
+                } else {
+                    alert('Training failed: ' + result.error);
+                    hideModal();
+                }
+            } catch (error) {
+                hideProgress();
+                alert('Training failed: ' + error.message);
+                hideModal();
+            }
+        }
+
+        function showModal() {
+            document.getElementById('comparisonModal').style.display = 'flex';
+        }
+
+        function hideModal() {
+            document.getElementById('comparisonModal').style.display = 'none';
+        }
+
+        function showProgress() {
+            document.getElementById('trainingProgress').style.display = 'block';
+            document.getElementById('comparisonResults').style.display = 'none';
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 2;
+                if (progress > 95) progress = 95;
+                const fill = document.getElementById('progressFill');
+                fill.style.width = progress + '%';
+                fill.textContent = progress + '%';
+            }, 200);
+
+            setTimeout(() => {
+                clearInterval(interval);
+                document.getElementById('progressFill').style.width = '100%';
+                document.getElementById('progressFill').textContent = '100%';
+            }, 10000);
+        }
+
+        function hideProgress() {
+            document.getElementById('trainingProgress').style.display = 'none';
+            document.getElementById('progressFill').style.width = '0%';
+        }
+
+        function showComparison(result) {
+            currentComparison = result;
+
+            document.getElementById('oldAccuracy').textContent = (result.old_metrics.accuracy * 100).toFixed(2) + '%';
+            document.getElementById('oldF1').textContent = (result.old_metrics.f1_score * 100).toFixed(2) + '%';
+            document.getElementById('oldSamples').textContent = result.old_metrics.samples;
+
+            document.getElementById('newAccuracy').textContent = (result.new_metrics.accuracy * 100).toFixed(2) + '%';
+            document.getElementById('newF1').textContent = (result.new_metrics.f1_score * 100).toFixed(2) + '%';
+            document.getElementById('newSamples').textContent = result.new_metrics.samples;
+
+            const accChange = document.getElementById('accuracyChange');
+            const accImprovement = result.improvements.accuracy * 100;
+            accChange.textContent = (accImprovement >= 0 ? '+' : '') + accImprovement.toFixed(2) + '%';
+            accChange.className = accImprovement >= 0 ? 'improvement-positive' : 'improvement-negative';
+
+            const f1Change = document.getElementById('f1Change');
+            const f1Improvement = result.improvements.f1_score * 100;
+            f1Change.textContent = (f1Improvement >= 0 ? '+' : '') + f1Improvement.toFixed(2) + '%';
+            f1Change.className = f1Improvement >= 0 ? 'improvement-positive' : 'improvement-negative';
+
+            document.getElementById('newSamplesAdded').textContent = result.improvements.new_samples_added;
+
+            document.getElementById('comparisonResults').style.display = 'block';
+        }
+
+        async function acceptNewModel() {
+            if (!currentComparison) return;
+
+            try {
+                const response = await fetch('/api/accept_new_model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ backup_location: currentComparison.backup_location })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ New model activated! The dashboard will now use the updated model.');
+                    hideModal();
+                    updateQueueStatus();
+                } else {
+                    alert('Failed to activate new model: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function rejectNewModel() {
+            if (!currentComparison) return;
+
+            try {
+                const response = await fetch('/api/reject_new_model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ backup_location: currentComparison.backup_location })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Current model retained. New model discarded.');
+                    hideModal();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.className = 'status-message status-' + type;
+            element.textContent = message;
+            element.style.display = 'block';
+
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+
+        // Load features on page load
+        window.addEventListener('load', loadFeatures);
+    </script>
+</body>
+</html>
