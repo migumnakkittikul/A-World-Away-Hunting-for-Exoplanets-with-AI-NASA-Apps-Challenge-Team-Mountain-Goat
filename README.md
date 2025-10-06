@@ -1,6 +1,6 @@
 # 🌟 Exoplanet Detection System with XGBoost Ensemble
 
-Interactive web platform for classifying exoplanet candidates using an ensemble of five XGBoost models. Achieves **94%+ accuracy** on NASA's Kepler mission data.
+Interactive web platform for classifying exoplanet candidates using an ensemble of five XGBoost models. Achieves **87%+ accuracy** on NASA's Kepler mission data.
 
 ---
 
